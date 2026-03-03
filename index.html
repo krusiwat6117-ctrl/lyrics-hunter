@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lyrics Hunter - Stable Version</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root { --main-color: #6c5ce7; --bg-color: #f8f9fa; --card-bg: #ffffff; --text-color: #2d3436; }
+        body { font-family: 'Prompt', sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+
+        .screen { display: none; max-width: 650px; width: 100%; background: white; border-radius: 25px; box-shadow: 0 15px 40px rgba(0,0,0,0.1); overflow: hidden; text-align: center; }
+        .active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .padding-box { padding: 40px; }
+        input[type="text"] { width: 80%; padding: 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 1.1rem; margin-bottom: 20px; font-family: 'Prompt'; outline: none; text-align: center; }
+        .btn-primary { background: var(--main-color); color: white; border: none; padding: 12px 35px; border-radius: 50px; font-size: 1.2rem; cursor: pointer; font-family: 'Prompt'; font-weight: 600; transition: 0.3s; }
+
+        .video-container { position: relative; width: 100%; padding-top: 56.25%; background: #000; }
+        .video-container iframe, #player { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+
+        .song-info { background: #eee; padding: 10px; font-weight: 600; color: #444; }
+        .game-content { padding: 25px; }
+        .status-bar { display: flex; justify-content: space-between; margin-bottom: 15px; font-weight: 600; color: var(--main-color); }
+
+        .lyrics-box { font-size: 1.2rem; line-height: 2.2; background: #f1f2f6; padding: 20px; border-radius: 15px; margin-bottom: 20px; min-height: 80px; }
+        .blank { display: inline-block; min-width: 60px; border-bottom: 3px solid #ff7675; color: transparent; margin: 0 5px; }
+        .blank.filled { color: #00b894; border-bottom-color: #00b894; font-weight: 600; }
+
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .option-btn { padding: 12px; border: 2px solid #eee; border-radius: 12px; background: white; cursor: pointer; font-family: 'Prompt'; transition: 0.2s; }
+        .option-btn:hover:not(:disabled) { border-color: var(--main-color); background: #f4f2ff; }
+        .option-btn:disabled { opacity: 0.4; }
+
+        #nextBtn { background: #00b894; margin-top: 20px; display: none; width: 100%; }
+    </style>
+</head>
+<body>
+
+    <div id="screen-login" class="screen active">
+        <div class="padding-box">
+            <h1 style="color: var(--main-color)">🎧 Lyrics Hunter</h1>
+            <p>Enter your name</p>
+            <input type="text" id="playerNameInput" placeholder="Your name..." autocomplete="off">
+            <br>
+            <button class="btn-primary" onclick="initGame()">START ➔</button>
+            <p id="api-status" style="font-size: 0.8rem; color: #999; margin-top: 15px;">Loading audio...</p>
+        </div>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <div class="song-info" id="songTitleDisplay">🎵 Loading song titles...</div>
+        <div class="video-container">
+            <div id="player"></div>
+        </div>
+        <div class="game-content">
+            <div class="status-bar">
+                <span>Player: <span id="displayPlayer"></span></span>
+                <span>Stage: <span id="curStage">1</span>/5</span>
+                <span>Score: <span id="curScore">0</span></span>
+            </div>
+            <div class="lyrics-box" id="lyricsDisplay"></div>
+            <div id="msg" style="height: 25px; margin-bottom: 10px; font-weight: 600;"></div>
+            <div class="options-grid" id="optionsContainer"></div>
+            <button class="btn-primary" id="nextBtn" onclick="nextStage()">ด่านต่อไป ➔</button>
+        </div>
+    </div>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+
+    <script>
+        const gameData = [
+            { title: "Go to School", id: "xgHOUzcp0Wk", lyrics: "everyday, hooray! hooray! <br> fun things to do all day! <br> clap your hand! hip hip hooray! <br> this is a happy day! <br> get up, get up, rise, and shine <br> let’s [0], feeling fine <br> [1], up and down <br> [2] quick, and turn around <br> let's [3] ", ans: ["make the bed", "brush your teeth", "get dressed", "go to school"], opt: ["get up", "make the bed", "brush your teeth", "get dressed", "go to school", "wash my face", "make a craft","go to the beach"] },
+            { title: "In the farm", id: "durc1sqRzM8", lyrics: "when I [0], staying in the farm <br> doing cool, just wait and see <br> I wanna go walking, just to make me strong <br> or maybe [1] <br> staying all day long, [2] <br> I wanna [3], cause I am kind <br> or, it’s a dream come true", ans: ["get up", "go fishing", "feed the animals", "go swimming"], opt: ["get up", "go walking", "go fishing", "feed the animals", "go swimming", "go running", "feed the pets", "play with animals"] },
+            { title: "Happy Journey", id: "=tTxlFJYKaqs", lyrics: " [0], and prepare myself <br> [1], quiet thoughts, a peaceful state <br> [2], [3], the day feels right <br> simple moments, soft and light <br> visit grandparents, sit and stay <br> hear their stories, fade the day <br> in the routines, clam is found <br> love and life in small, safe sound", ans: ["wash my hair", "go to the temple", "drink milk", "buy food"], opt: ["wash my hair", "go to the temple", "drink milk", "buy food", "visit grandparents", "wash my hands", "go to the church", "drink water"] },
+            { title: "Where we belong", id: "hON2G8tuH0M", lyrics: "let's [0], crayons on the page <br> [1] together, let the rhythm set the stage <br> [2], feel the breeze so light <br> smiling at the world, from morning to night <br> Feed the animals, hear them say hello <br> [3], let your happiness grow <br> sing a song again, clap along and strong <br> fun and love is where we belong", ans: ["draw a picture", "sing a song", "go for a walk ", "play with pets"], opt: ["draw a picture", "sing a song", "go for a walk ", "play with pets", "color the picture", "go swimming", "set the table", "feed the animals"] },
+            { title: "Party Song", id: "_mtIP3Zdm9k", lyrics: "woke up on the right side of the bed <br> [0] and [1] <br> hands up if you’re down to get down tonight <br> cause it’s always a good time <br> [2] for clothes, like it didn’t end <br> hopped into a cab, take us anywhere <br> I’m in, to go to my friends’ tonight <br> cause it’s always a good time <br> good morning and good night <br> I woke up at twilight <br> it’s gonna be alright <br> you don’t even have to try <br> [3], come tonight", ans: ["charge my phone", "chat with my friends", "go shopping", "join the party"], opt: ["charge my phone", "chat with my friends", "go shopping", "join the party", "go running", "talk with friends", "go to school", "get up from the bed"] }
+        ];
+
+        let player;
+        let stageIdx = 0;
+        let blankIdx = 0;
+        let score = 0;
+        let isApiReady = false;
+
+        // เมื่อ API ของ YouTube พร้อมทำงาน
+        function onYouTubeIframeAPIReady() {
+            isApiReady = true;
+            document.getElementById('api-status').innerText = "Ready ✅";
+            document.getElementById('api-status').style.color = "#00b894";
+        }
+
+        function initGame() {
+            const name = document.getElementById('playerNameInput').value.trim();
+            if (!name) return alert("Name, please!");
+            if (!isApiReady) return alert("Loading... Please wait.");
+
+            document.getElementById('displayPlayer').innerText = name;
+            document.getElementById('screen-login').classList.remove('active');
+            document.getElementById('screen-game').classList.add('active');
+
+            loadVideo();
+        }
+
+        function loadVideo() {
+            const data = gameData[stageIdx];
+            document.getElementById('songTitleDisplay').innerText = "🎵 " + data.title;
+            document.getElementById('curStage').innerText = stageIdx + 1;
+            
+            if (!player) {
+                player = new YT.Player('player', {
+                    videoId: data.id,
+                    playerVars: { 'autoplay': 1, 'rel': 0 },
+                    events: { 'onReady': onPlayerReady }
+                });
+            } else {
+                player.loadVideoById(data.id);
+            }
+            renderLyrics();
+        }
+
+        function onPlayerReady(event) {
+            event.target.playVideo();
+        }
+
+        function renderLyrics() {
+            const data = gameData[stageIdx];
+            blankIdx = 0;
+            let html = data.lyrics;
+            data.ans.forEach((_, i) => html = html.replace(`[${i}]`, `<span id="b-${i}" class="blank">_____</span>`));
+            document.getElementById('lyricsDisplay').innerHTML = html;
+
+            const optContainer = document.getElementById('optionsContainer');
+            optContainer.innerHTML = '';
+            [...data.opt].sort(() => Math.random() - 0.5).forEach(word => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = word;
+                btn.onclick = () => checkAns(word, btn);
+                optContainer.appendChild(btn);
+            });
+            document.getElementById('nextBtn').style.display = 'none';
+        }
+
+        function checkAns(word, btn) {
+            const data = gameData[stageIdx];
+            if (word === data.ans[blankIdx]) {
+                const target = document.getElementById(`b-${blankIdx}`);
+                target.innerText = word;
+                target.classList.add('filled');
+                btn.disabled = true;
+                blankIdx++;
+                score += 5;
+                document.getElementById('curScore').innerText = score;
+                document.getElementById('msg').innerText = "Correct! ✨";
+                document.getElementById('msg').style.color = "#00b894";
+
+                if (blankIdx === data.ans.length) {
+                    document.getElementById('msg').innerText = "Way to go! Level up! 🎉";
+                    document.getElementById('nextBtn').style.display = 'block';
+                    if (stageIdx === 4) document.getElementById('nextBtn').innerText = "Check your score";
+                }
+            } else {
+                document.getElementById('msg').innerText = "Try again! ❌";
+                document.getElementById('msg').style.color = "#ff7675";
+            }
+        }
+
+        function nextStage() {
+            if (stageIdx < 4) {
+                stageIdx++;
+                loadVideo();
+                document.getElementById('msg').innerText = "";
+            } else {
+                alert("Congrats! Your score is: " + score + " points");
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
